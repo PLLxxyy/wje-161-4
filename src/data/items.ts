@@ -1,4 +1,5 @@
-import { WasteItem, CategoryInfo } from '../types'
+import { WasteItem, CategoryInfo, CategoryType } from '../types'
+import { getCustomItems, getCustomItemById, getCustomItemsByCategory } from '../utils/storage'
 
 export const categories: CategoryInfo[] = [
   {
@@ -378,10 +379,27 @@ export const wasteItems: WasteItem[] = [
   { id: 'o080', name: '海绵', category: 'other', description: '使用过的海绵和泡沫。', disposal: '投入其他垃圾收集容器。', commonMistakes: ['海绵不可回收', '不要投入可回收物垃圾桶'], keywords: ['海绵', '泡沫', '发泡材料'] }
 ]
 
-export const getItemsByCategory = (type: string): WasteItem[] => {
-  return wasteItems.filter(item => item.category === type)
+export const getItemsByCategory = (type: CategoryType): WasteItem[] => {
+  const customItems = getCustomItemsByCategory(type)
+  const systemItems = wasteItems.filter(item => item.category === type)
+  return [...customItems, ...systemItems]
 }
 
 export const getItemById = (id: string): WasteItem | undefined => {
+  if (id.startsWith('custom_')) {
+    return getCustomItemById(id)
+  }
   return wasteItems.find(item => item.id === id)
+}
+
+export const getAllItemsCount = (): { total: number; recycle: number; harmful: number; kitchen: number; other: number } => {
+  const customItems = getCustomItems()
+  const allItems = [...customItems, ...wasteItems]
+  return {
+    total: allItems.length,
+    recycle: allItems.filter(i => i.category === 'recycle').length,
+    harmful: allItems.filter(i => i.category === 'harmful').length,
+    kitchen: allItems.filter(i => i.category === 'kitchen').length,
+    other: allItems.filter(i => i.category === 'other').length,
+  }
 }

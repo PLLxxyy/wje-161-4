@@ -1,7 +1,7 @@
 import React from 'react'
 import { PageType, CategoryType } from './types'
 import { getTheme, setTheme, addHistory } from './utils/storage'
-import { wasteItems } from './data/items'
+import { getAllItemsCount } from './data/items'
 
 import Home from './pages/Home'
 import SearchResult from './pages/SearchResult'
@@ -24,6 +24,7 @@ const App: React.FC = () => {
   const [selectedItemId, setSelectedItemId] = React.useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = React.useState<CategoryType | null>(null)
   const [prevPage, setPrevPage] = React.useState<PageType>('home')
+  const [statsRefreshKey, setStatsRefreshKey] = React.useState(0)
 
   const toggleTheme = () => {
     const next = theme === 'light' ? 'dark' : 'light'
@@ -34,11 +35,13 @@ const App: React.FC = () => {
   const navigateTo = (p: PageType) => {
     setPrevPage(page)
     setPage(p)
+    setStatsRefreshKey(k => k + 1)
     window.scrollTo(0, 0)
   }
 
   const goBack = () => {
     setPage(prevPage)
+    setStatsRefreshKey(k => k + 1)
     window.scrollTo(0, 0)
   }
 
@@ -58,13 +61,7 @@ const App: React.FC = () => {
     navigateTo('category')
   }
 
-  const stats = {
-    total: wasteItems.length,
-    recycle: wasteItems.filter(i => i.category === 'recycle').length,
-    harmful: wasteItems.filter(i => i.category === 'harmful').length,
-    kitchen: wasteItems.filter(i => i.category === 'kitchen').length,
-    other: wasteItems.filter(i => i.category === 'other').length,
-  }
+  const stats = React.useMemo(() => getAllItemsCount(), [statsRefreshKey, page])
 
   return (
     <>

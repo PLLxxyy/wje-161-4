@@ -8,6 +8,18 @@ export interface WasteItem {
   disposal: string
   commonMistakes: string[]
   keywords: string[]
+  isCustom?: boolean
+  createdAt?: number
+  updatedAt?: number
+}
+
+export interface CustomWasteItemForm {
+  name: string
+  category: CategoryType
+  description: string
+  disposal: string
+  commonMistakes: string[]
+  keywords: string[]
 }
 
 export interface CategoryInfo {

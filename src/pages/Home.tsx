@@ -2,8 +2,9 @@ import React from 'react'
 import { PageType } from '../types'
 import { CategoryType, SearchHistoryItem } from '../types'
 import { categories } from '../data/items'
-import { getHistory, clearHistory } from '../utils/storage'
+import { getHistory, clearHistory, deleteCustomItem, addCustomItem, updateCustomItem } from '../utils/storage'
 import { searchItems, highlightText } from '../utils/search'
+import CustomItemForm from './CustomItemForm'
 
 interface Props {
   searchText: string
@@ -24,20 +25,53 @@ const Home: React.FC<Props> = ({
 }) => {
   const [history, setHistory] = React.useState<SearchHistoryItem[]>(getHistory())
   const [showDropdown, setShowDropdown] = React.useState(false)
+  const [results, setResults] = React.useState(() => searchItems(searchText))
+  const [showAddForm, setShowAddForm] = React.useState(false)
+  const [editingItemId, setEditingItemId] = React.useState<string | null>(null)
+  const [refreshKey, setRefreshKey] = React.useState(0)
 
-  const results = React.useMemo(() => searchItems(searchText), [searchText])
+  React.useEffect(() => {
+    setResults(searchItems(searchText))
+  }, [searchText, refreshKey])
+
   const showResults = searchText.trim().length > 0
+
+  const refreshResults = () => {
+    setRefreshKey(k => k + 1)
+    setResults(searchItems(searchText))
+  }
 
   const handleSearch = (text: string) => {
     if (text.trim()) {
       onSearch(text.trim())
       setHistory(getHistory())
+      setShowDropdown(false)
     }
   }
 
   const handleClearHistory = () => {
     clearHistory()
     setHistory([])
+  }
+
+  const handleDelete = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation()
+    if (confirm('确定要删除这个自定义条目吗？')) {
+      deleteCustomItem(id)
+      refreshResults()
+    }
+  }
+
+  const handleEdit = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation()
+    setEditingItemId(id)
+  }
+
+  const editingItem = editingItemId ? results.find(r => r.item.id === editingItemId)?.item : undefined
+
+  const handleOpenAddForm = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setShowAddForm(true)
   }
 
   return (
@@ -51,7 +85,7 @@ const Home: React.FC<Props> = ({
           value={searchText}
           onChange={e => { onSearchChange(e.target.value); setShowDropdown(true) }}
           onFocus={() => setShowDropdown(true)}
-          onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
+          onBlur={() => setTimeout(() => { setShowDropdown(false); setEditingItemId(null) }, 200)}
           onKeyDown={e => { if (e.key === 'Enter') handleSearch(searchText) }}
         />
         {searchText && (
@@ -60,31 +94,63 @@ const Home: React.FC<Props> = ({
       </div>
 
       {showResults && showDropdown && (
-        <div className="result-list fade-in" style={{ maxHeight: 400, overflowY: 'auto' }}>
+        <div className="result-list fade-in" style={{ maxHeight: 450, overflowY: 'auto' }}>
           {results.length === 0 ? (
-            <div className="empty-state">
+            <div className="empty-state" style={{ padding: 20 }}>
               <div className="icon">😕</div>
               <p>没有找到「{searchText}」相关物品</p>
+              <div style={{ marginTop: 12 }}>
+                <button className="btn btn-primary btn-sm" onClick={handleOpenAddForm}>
+                  ➕ 添加「{searchText}」
+                </button>
+              </div>
             </div>
           ) : (
-            results.slice(0, 20).map(r => (
-              <div
-                key={r.item.id}
-                className={`result-item ${r.item.category === 'recycle' ? 'recycle-border' : r.item.category === 'harmful' ? 'harmful-border' : r.item.category === 'kitchen' ? 'kitchen-border' : 'other-border'}`}
-                onClick={() => { handleSearch(searchText); onDetailClick(r.item.id) }}
-              >
-                <div className="info">
-                  <div
-                    className="name"
-                    dangerouslySetInnerHTML={{ __html: highlightText(r.item.name, searchText) }}
-                  />
-                  <div className="tip">{r.item.description.slice(0, 40)}...</div>
+            <>
+              {results.slice(0, 20).map(r => (
+                <div
+                  key={r.item.id}
+                  className={`result-item ${r.item.category === 'recycle' ? 'recycle-border' : r.item.category === 'harmful' ? 'harmful-border' : r.item.category === 'kitchen' ? 'kitchen-border' : 'other-border'}`}
+                  onClick={() => { handleSearch(searchText); onDetailClick(r.item.id) }}
+                >
+                  <div className="info">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div
+                        className="name"
+                        dangerouslySetInnerHTML={{ __html: highlightText(r.item.name, searchText) }}
+                      />
+                      {r.item.isCustom && (
+                        <span className="custom-badge" title="用户自定义">自定义</span>
+                      )}
+                    </div>
+                    <div className="tip">{r.item.description.slice(0, 40)}...</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span className={`tag tag-${r.item.category}`}>
+                      {categories.find(c => c.type === r.item.category)?.name}
+                    </span>
+                    {r.item.isCustom && (
+                      <div className="item-actions" onClick={e => e.stopPropagation()}>
+                        <button
+                          className="icon-btn"
+                          title="编辑"
+                          onClick={e => handleEdit(e, r.item.id)}
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          className="icon-btn"
+                          title="删除"
+                          onClick={e => handleDelete(e, r.item.id)}
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <span className={`tag tag-${r.item.category}`}>
-                  {categories.find(c => c.type === r.item.category)?.name}
-                </span>
-              </div>
-            ))
+              ))}
+            </>
           )}
         </div>
       )}
@@ -113,6 +179,16 @@ const Home: React.FC<Props> = ({
         </button>
       </div>
 
+      <div style={{ marginBottom: 16 }}>
+        <button
+          className="btn btn-outline"
+          style={{ width: '100%' }}
+          onClick={() => setShowAddForm(true)}
+        >
+          ➕ 添加自定义垃圾条目
+        </button>
+      </div>
+
       {history.length > 0 && (
         <div className="history-section">
           <div className="history-header">
@@ -131,6 +207,30 @@ const Home: React.FC<Props> = ({
             ))}
           </div>
         </div>
+      )}
+
+      {showAddForm && (
+        <CustomItemForm
+          defaultName={searchText}
+          onSubmit={form => {
+            addCustomItem(form)
+            setShowAddForm(false)
+            refreshResults()
+          }}
+          onCancel={() => setShowAddForm(false)}
+        />
+      )}
+
+      {editingItem && (
+        <CustomItemForm
+          initialData={editingItem}
+          onSubmit={form => {
+            updateCustomItem(editingItem.id, form)
+            setEditingItemId(null)
+            refreshResults()
+          }}
+          onCancel={() => setEditingItemId(null)}
+        />
       )}
     </div>
   )

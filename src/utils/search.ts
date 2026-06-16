@@ -1,5 +1,6 @@
 import { WasteItem } from '../types'
 import { wasteItems } from '../data/items'
+import { getCustomItems } from './storage'
 
 export interface SearchResult {
   item: WasteItem
@@ -7,14 +8,20 @@ export interface SearchResult {
   matchedWord: string
 }
 
+export const getAllItems = (): WasteItem[] => {
+  const customItems = getCustomItems()
+  return [...customItems, ...wasteItems]
+}
+
 export const searchItems = (query: string): SearchResult[] => {
   const q = query.trim().toLowerCase()
   if (!q) return []
 
+  const allItems = getAllItems()
   const results: SearchResult[] = []
   const seen = new Set<string>()
 
-  wasteItems.forEach(item => {
+  allItems.forEach(item => {
     if (seen.has(item.id)) return
 
     if (item.name.toLowerCase().includes(q)) {
